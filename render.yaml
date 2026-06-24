@@ -8,7 +8,6 @@ services:
     autoDeployTrigger: commit
     buildCommand: corepack enable && pnpm install --frozen-lockfile
     startCommand: pnpm start
-    maxShutdownDelaySeconds: 60
     disk:
       name: sales-bot-state
       mountPath: /var/data
