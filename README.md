@@ -31,7 +31,7 @@ Fill in `.env` with:
 - `X_ACCESS_TOKEN`
 - `X_ACCESS_SECRET`
 
-OAuth 1.0a user credentials are required for image upload. OAuth 2 can post text, but the sales bot is configured to reject text-only posts.
+OAuth 2 user credentials must include `tweet.read`, `tweet.write`, `users.read`, `media.write`, and `offline.access`. The bot is configured to reject text-only posts when image upload fails.
 
 In the X Developer app, add this callback URL for OAuth 2 user authentication:
 
@@ -81,11 +81,11 @@ Deploy checklist:
 - Use the `main` branch in the `LEFTCLICKLABZ/pooga-sales-bot` GitHub repo.
 - Create the Render Blueprint or worker from `render.yaml`.
 - Set the `sync: false` secrets in Render: `OPENSEA_API_KEY`, `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET`, and optional `ETH_RPC_URL`.
-- Also set the OAuth 2 secrets used for final tweet creation: `X_OAUTH2_CLIENT_ID`, `X_OAUTH2_CLIENT_SECRET`, `X_OAUTH2_ACCESS_TOKEN`, and `X_OAUTH2_REFRESH_TOKEN`.
+- Also set the OAuth 2 secrets used for image upload and final tweet creation: `X_OAUTH2_CLIENT_ID`, `X_OAUTH2_CLIENT_SECRET`, `X_OAUTH2_ACCESS_TOKEN`, and `X_OAUTH2_REFRESH_TOKEN`.
 - Confirm `DRY_RUN=false` and `IGNORE_SALES_BEFORE` is set to the exact go-live timestamp before deploying.
-- Confirm Render logs say `Using X auth mode: oauth2+oauth1-media` and never accept a run that logs `image=false`.
+- Confirm Render logs say `Using X auth mode: oauth2-media+oauth1-fallback` and never accept a run that logs `image=false`.
 
-OAuth 1.0a uploads the image; OAuth 2 creates the final tweet.
+OAuth 2 uploads the image and creates the final tweet. OAuth 1.0a is kept only as a backup media path.
 
 ## Collection
 
