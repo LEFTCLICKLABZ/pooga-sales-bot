@@ -43,6 +43,8 @@ async function main() {
     : config;
   const state = createStateStore(runConfig.bot.stateFile, {
     maxPendingSales: runConfig.bot.maxPendingSales,
+    maxPendingAgeMs: runConfig.bot.pendingMaxAgeMs,
+    forbiddenBackoffMs: runConfig.bot.forbiddenBackoffMs,
   });
   const xPoster = runConfig.dryRun ? null : createXPoster(runConfig.x);
   const ensResolver = createEnsResolver(runConfig.ens);
