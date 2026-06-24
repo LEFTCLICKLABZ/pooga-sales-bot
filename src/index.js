@@ -11,6 +11,7 @@ validateConfig();
 
 const state = createStateStore(config.bot.stateFile, {
   maxPendingSales: config.bot.maxPendingSales,
+  maxPendingAgeMs: config.bot.pendingMaxAgeMs,
   forbiddenBackoffMs: config.bot.forbiddenBackoffMs,
 });
 const xPoster = config.dryRun ? null : createXPoster(config.x);
@@ -107,6 +108,10 @@ if (xPoster) {
 }
 
 if (!config.dryRun) {
+  const prunedPendingCount = state.prunePending();
+  if (prunedPendingCount > 0) {
+    console.log(`Dropped ${prunedPendingCount} stale pending sale(s)`);
+  }
   console.log(`Pending sale retry queue contains ${state.pendingCount()} sale(s)`);
   drainPendingSales("startup").catch((error) => {
     console.error("Failed to drain pending sales on startup", error);
