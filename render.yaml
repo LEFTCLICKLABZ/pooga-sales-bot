@@ -24,15 +24,19 @@ services:
       - key: OPENSEA_POLL_ENABLED
         value: "false"
       - key: ENS_LOOKUP
-        value: "true"
+        value: "false"
       - key: ENS_TIMEOUT_MS
         value: "1500"
       - key: RETRY_INTERVAL_MS
-        value: "60000"
+        value: "300000"
       - key: RETRY_BATCH_SIZE
-        value: "3"
+        value: "1"
       - key: MAX_PENDING_SALES
         value: "250"
+      - key: X_POST_INTERVAL_MS
+        value: "30000"
+      - key: X_FORBIDDEN_BACKOFF_MS
+        value: "3600000"
       - key: IGNORE_SALES_BEFORE
         value: "2026-06-24T01:22:16Z"
       - key: STATE_FILE
