@@ -6,8 +6,8 @@ services:
     region: oregon
     branch: main
     autoDeployTrigger: commit
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
-    startCommand: pnpm start
+    buildCommand: npx --yes pnpm@11.5.3 install --frozen-lockfile
+    startCommand: npm start
     disk:
       name: sales-bot-state
       mountPath: /var/data
