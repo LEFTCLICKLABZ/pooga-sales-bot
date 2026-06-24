@@ -4,6 +4,8 @@ const path = require("node:path");
 const MAX_POSTED_IDS = 1000;
 const RETRY_BASE_MS = 60_000;
 const RETRY_MAX_MS = 30 * 60_000;
+const DEFAULT_FORBIDDEN_BACKOFF_MS = 60 * 60_000;
+const DEFAULT_RATE_LIMIT_BACKOFF_MS = 15 * 60_000;
 
 function loadState(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -40,7 +42,50 @@ function saleIds(value) {
 function errorMessage(error) {
   if (!error) return "";
   if (typeof error === "string") return error;
-  return error.message || JSON.stringify(error.data || error);
+
+  const status = errorStatus(error);
+  const title = error?.data?.title || error?.title;
+  const detail = error?.data?.detail || error?.detail;
+  const rateLimit = error?.rateLimit
+    ? ` rateLimit=${error.rateLimit.remaining}/${error.rateLimit.limit} reset=${error.rateLimit.reset}`
+    : "";
+  const pieces = [
+    status ? `status=${status}` : "",
+    title ? `title=${title}` : "",
+    detail ? `detail=${detail}` : "",
+    error.message ? `message=${error.message}` : "",
+    rateLimit,
+  ].filter(Boolean);
+
+  return pieces.join(" ");
+}
+
+function errorStatus(error) {
+  return Number(error?.code || error?.status || error?.data?.status || 0);
+}
+
+function rateLimitDelayMs(error) {
+  const resetSeconds = Number(error?.rateLimit?.reset || 0);
+  if (!Number.isFinite(resetSeconds) || resetSeconds <= 0) {
+    return DEFAULT_RATE_LIMIT_BACKOFF_MS;
+  }
+
+  const resetDelay = resetSeconds * 1000 - Date.now();
+  return Math.max(DEFAULT_RATE_LIMIT_BACKOFF_MS, resetDelay);
+}
+
+function retryDelayMs(error, attempts, options) {
+  const status = errorStatus(error);
+
+  if (status === 429) {
+    return rateLimitDelayMs(error);
+  }
+
+  if (status === 403) {
+    return Number(options.forbiddenBackoffMs || DEFAULT_FORBIDDEN_BACKOFF_MS);
+  }
+
+  return Math.min(RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1), RETRY_MAX_MS);
 }
 
 function createStateStore(filePath, options = {}) {
@@ -84,8 +129,12 @@ function createStateStore(filePath, options = {}) {
       return state.pendingSales.filter((sale) => sale && !hasAny(saleIds(sale)));
     },
 
+    isPending(value) {
+      return pendingIndex(value) >= 0;
+    },
+
     upsertPending(sale) {
-      if (!sale || !sale.id || hasAny(saleIds(sale))) return;
+      if (!sale || !sale.id || hasAny(saleIds(sale))) return false;
 
       const index = pendingIndex(sale);
       const existing = index >= 0 ? state.pendingSales[index] : {};
@@ -103,6 +152,7 @@ function createStateStore(filePath, options = {}) {
         state.pendingSales.push(pendingSale);
       }
       persist();
+      return index < 0;
     },
 
     scheduleRetry(value, error) {
@@ -111,7 +161,7 @@ function createStateStore(filePath, options = {}) {
 
       const sale = state.pendingSales[index];
       const attempts = (sale.attempts || 0) + 1;
-      const delay = Math.min(RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1), RETRY_MAX_MS);
+      const delay = retryDelayMs(error, attempts, options);
       const nextAttemptAt = new Date(Date.now() + delay).toISOString();
 
       state.pendingSales[index] = {
