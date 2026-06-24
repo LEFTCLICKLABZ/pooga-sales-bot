@@ -200,6 +200,16 @@ function createStateStore(filePath, options = {}) {
       return Math.max(0, before - state.pendingSales.length);
     },
 
+    dropPending(value) {
+      const ids = new Set(saleIds(value));
+      const before = state.pendingSales.length;
+      state.pendingSales = state.pendingSales.filter(
+        (pendingSale) => !saleIds(pendingSale).some((id) => ids.has(id)),
+      );
+      persist();
+      return before !== state.pendingSales.length;
+    },
+
     markPosted(sale) {
       saleIds(sale).forEach((id) => posted.add(id));
       const ids = new Set(saleIds(sale));
