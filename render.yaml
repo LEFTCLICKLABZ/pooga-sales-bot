@@ -22,7 +22,13 @@ services:
       - key: REQUIRE_IMAGES
         value: "true"
       - key: OPENSEA_POLL_ENABLED
-        value: "false"
+        value: "true"
+      - key: OPENSEA_POLL_INTERVAL_MS
+        value: "60000"
+      - key: OPENSEA_POLL_LOOKBACK_MS
+        value: "7200000"
+      - key: OPENSEA_POLL_MAX_SALES
+        value: "10"
       - key: ENS_LOOKUP
         value: "false"
       - key: ENS_TIMEOUT_MS
@@ -34,7 +40,7 @@ services:
       - key: MAX_PENDING_SALES
         value: "250"
       - key: PENDING_MAX_AGE_MS
-        value: "900000"
+        value: "7200000"
       - key: X_POST_INTERVAL_MS
         value: "30000"
       - key: X_FORBIDDEN_BACKOFF_MS
