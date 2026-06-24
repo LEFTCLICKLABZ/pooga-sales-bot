@@ -36,6 +36,19 @@ function createSalesProcessor({
     return 0;
   }
 
+  function saleStartedAt(sale) {
+    const timestamp = Date.parse(sale?.pendingSince || sale?.eventTimestamp || "");
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
+  function isSaleStaleAt(sale, now = Date.now()) {
+    const maxAgeMs = Number(config.bot.pendingMaxAgeMs || 0);
+    if (!maxAgeMs) return false;
+
+    const startedAt = saleStartedAt(sale);
+    return Boolean(startedAt && now - startedAt > maxAgeMs);
+  }
+
   function summarizeError(error) {
     const status = errorStatus(error);
     const title = error?.data?.title || error?.title;
@@ -54,10 +67,16 @@ function createSalesProcessor({
     return pieces.join(" ") || String(error);
   }
 
-  async function waitForPostSlot() {
+  async function waitForPostSlot(sale) {
     const postIntervalMs = Math.max(0, Number(config.bot.postIntervalMs || 0));
     const nextAllowedAt = Math.max(lastPostAttemptAt + postIntervalMs, xCooldownUntil);
     const waitMs = nextAllowedAt - Date.now();
+
+    if (waitMs > 0 && isSaleStaleAt(sale, nextAllowedAt)) {
+      state.dropPending(sale);
+      console.log(`Skipping stale pending sale ${sale.id} before X cooldown wait`);
+      return false;
+    }
 
     if (waitMs > 0) {
       console.log(`Waiting ${Math.ceil(waitMs / 1000)}s before next X post attempt`);
@@ -65,6 +84,7 @@ function createSalesProcessor({
     }
 
     lastPostAttemptAt = Date.now();
+    return true;
   }
 
   async function enrichSale(sale) {
@@ -74,6 +94,12 @@ function createSalesProcessor({
   }
 
   async function postSaleNow(sale) {
+    if (isSaleStaleAt(sale)) {
+      state.dropPending(sale);
+      console.log(`Skipping stale pending sale ${sale.id}`);
+      return;
+    }
+
     const displaySale = await enrichSale(sale);
     const tweet = buildTweet(displaySale, config.bot);
 
@@ -89,7 +115,8 @@ function createSalesProcessor({
     }
 
     try {
-      await waitForPostSlot();
+      const hasPostSlot = await waitForPostSlot(sale);
+      if (!hasPostSlot) return;
       const posted = await xPoster.post(tweet, {
         imageUrl: displaySale.imageUrl,
         altText: `${displaySale.collectionName || "NFT"} ${displaySale.name}`,
