@@ -88,15 +88,31 @@ function retryDelayMs(error, attempts, options) {
   return Math.min(RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1), RETRY_MAX_MS);
 }
 
+function pendingStartedAt(sale) {
+  const timestamp = Date.parse(sale?.pendingSince || sale?.eventTimestamp || "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function createStateStore(filePath, options = {}) {
   let state = loadState(filePath);
   let posted = new Set(state.postedSaleIds);
   const maxPendingSales = options.maxPendingSales || 250;
+  const maxPendingAgeMs = Number(options.maxPendingAgeMs || 0);
+
+  function isFreshPending(sale, now = Date.now()) {
+    if (!sale || hasAny(saleIds(sale))) return false;
+    if (!maxPendingAgeMs) return true;
+
+    const startedAt = pendingStartedAt(sale);
+    if (!startedAt) return true;
+    return now - startedAt <= maxPendingAgeMs;
+  }
 
   function persist() {
+    const now = Date.now();
     state.postedSaleIds = Array.from(posted).slice(-MAX_POSTED_IDS);
     state.pendingSales = state.pendingSales
-      .filter((sale) => sale && sale.id && !saleIds(sale).some((id) => posted.has(id)))
+      .filter((sale) => sale && sale.id && isFreshPending(sale, now))
       .slice(-maxPendingSales);
     posted = new Set(state.postedSaleIds);
     saveState(filePath, state);
@@ -120,13 +136,13 @@ function createStateStore(filePath, options = {}) {
 
     pendingDue(now = Date.now()) {
       return state.pendingSales.filter((sale) => {
-        if (!sale || hasAny(saleIds(sale))) return false;
+        if (!isFreshPending(sale, now)) return false;
         return !sale.nextAttemptAt || Date.parse(sale.nextAttemptAt) <= now;
       });
     },
 
     pendingAll() {
-      return state.pendingSales.filter((sale) => sale && !hasAny(saleIds(sale)));
+      return state.pendingSales.filter((sale) => isFreshPending(sale));
     },
 
     isPending(value) {
@@ -175,7 +191,13 @@ function createStateStore(filePath, options = {}) {
     },
 
     pendingCount() {
-      return state.pendingSales.filter((sale) => sale && !hasAny(saleIds(sale))).length;
+      return state.pendingSales.filter((sale) => isFreshPending(sale)).length;
+    },
+
+    prunePending() {
+      const before = state.pendingSales.length;
+      persist();
+      return Math.max(0, before - state.pendingSales.length);
     },
 
     markPosted(sale) {
