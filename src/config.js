@@ -112,6 +112,8 @@ const config = {
     retryIntervalMs: parseNumber(env("RETRY_INTERVAL_MS"), 60_000),
     retryBatchSize: parseNumber(env("RETRY_BATCH_SIZE"), 3),
     maxPendingSales: parseNumber(env("MAX_PENDING_SALES"), 250),
+    postIntervalMs: parseNumber(env("X_POST_INTERVAL_MS"), 30_000),
+    forbiddenBackoffMs: parseNumber(env("X_FORBIDDEN_BACKOFF_MS"), 60 * 60_000),
   },
 };
 
