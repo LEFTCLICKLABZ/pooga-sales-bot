@@ -87,6 +87,7 @@ const config = {
     oauth2AccessToken: env("X_OAUTH2_ACCESS_TOKEN"),
     oauth2RefreshToken: env("X_OAUTH2_REFRESH_TOKEN"),
     oauth2TokenFile: path.resolve(process.cwd(), env("X_OAUTH2_TOKEN_FILE", ".env")),
+    authMode: normalizeUsername(env("X_AUTH_MODE", "auto")),
     expectedUsername: normalizeUsername(env("X_EXPECTED_USERNAME", "poogalabs")),
     postImages: parseBoolean(env("POST_IMAGES"), true),
     requireImages: parseBoolean(env("REQUIRE_IMAGES"), true),
