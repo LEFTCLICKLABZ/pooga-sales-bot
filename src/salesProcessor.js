@@ -8,13 +8,72 @@ function createSalesProcessor({
   profileResolver,
   usdConverter,
 }) {
+  let postQueue = Promise.resolve();
+  let lastPostAttemptAt = 0;
+  let xCooldownUntil = 0;
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function errorStatus(error) {
+    return Number(error?.code || error?.status || error?.data?.status || 0);
+  }
+
+  function rateLimitDelayMs(error) {
+    const resetSeconds = Number(error?.rateLimit?.reset || 0);
+    if (!Number.isFinite(resetSeconds) || resetSeconds <= 0) {
+      return 15 * 60_000;
+    }
+
+    return Math.max(15 * 60_000, resetSeconds * 1000 - Date.now());
+  }
+
+  function cooldownDelayMs(error) {
+    const status = errorStatus(error);
+    if (status === 429) return rateLimitDelayMs(error);
+    if (status === 403) return Number(config.bot.forbiddenBackoffMs || 60 * 60_000);
+    return 0;
+  }
+
+  function summarizeError(error) {
+    const status = errorStatus(error);
+    const title = error?.data?.title || error?.title;
+    const detail = error?.data?.detail || error?.detail;
+    const rateLimit = error?.rateLimit
+      ? ` rateLimit=${error.rateLimit.remaining}/${error.rateLimit.limit} reset=${error.rateLimit.reset}`
+      : "";
+    const pieces = [
+      status ? `status=${status}` : "",
+      title ? `title=${title}` : "",
+      detail ? `detail=${detail}` : "",
+      error?.message ? `message=${error.message}` : "",
+      rateLimit,
+    ].filter(Boolean);
+
+    return pieces.join(" ") || String(error);
+  }
+
+  async function waitForPostSlot() {
+    const postIntervalMs = Math.max(0, Number(config.bot.postIntervalMs || 0));
+    const nextAllowedAt = Math.max(lastPostAttemptAt + postIntervalMs, xCooldownUntil);
+    const waitMs = nextAllowedAt - Date.now();
+
+    if (waitMs > 0) {
+      console.log(`Waiting ${Math.ceil(waitMs / 1000)}s before next X post attempt`);
+      await sleep(waitMs);
+    }
+
+    lastPostAttemptAt = Date.now();
+  }
+
   async function enrichSale(sale) {
     const ensSale = ensResolver ? await ensResolver.enrichSale(sale) : sale;
     const profileSale = profileResolver ? await profileResolver.enrichSale(ensSale) : ensSale;
     return usdConverter ? usdConverter.enrichSale(profileSale) : profileSale;
   }
 
-  async function postSale(sale) {
+  async function postSaleNow(sale) {
     const displaySale = await enrichSale(sale);
     const tweet = buildTweet(displaySale, config.bot);
 
@@ -30,6 +89,7 @@ function createSalesProcessor({
     }
 
     try {
+      await waitForPostSlot();
       const posted = await xPoster.post(tweet, {
         imageUrl: displaySale.imageUrl,
         altText: `${displaySale.collectionName || "NFT"} ${displaySale.name}`,
@@ -42,8 +102,21 @@ function createSalesProcessor({
       const pending = state.scheduleRetry(sale, error);
       const retryAt =
         pending && pending.nextAttemptAt ? `; retrying at ${pending.nextAttemptAt}` : "";
-      console.error(`Failed to post sale ${sale.id} to X${retryAt}`, error);
+      const cooldownMs = cooldownDelayMs(error);
+      if (cooldownMs > 0) {
+        xCooldownUntil = Math.max(xCooldownUntil, Date.now() + cooldownMs);
+      }
+
+      console.error(
+        `Failed to post sale ${sale.id} to X${retryAt}: ${summarizeError(error)}`,
+      );
     }
+  }
+
+  function postSale(sale) {
+    const run = postQueue.catch(() => {}).then(() => postSaleNow(sale));
+    postQueue = run.catch(() => {});
+    return run;
   }
 
   async function handleSale(sale) {
@@ -74,7 +147,12 @@ function createSalesProcessor({
     }
 
     if (!config.dryRun) {
-      state.upsertPending(sale);
+      const wasPending = state.isPending(sale);
+      const wasAdded = state.upsertPending(sale);
+      if (wasPending && !wasAdded) {
+        console.log(`Skipping already-pending sale ${sale.id}`);
+        return;
+      }
     }
 
     await postSale(sale);
