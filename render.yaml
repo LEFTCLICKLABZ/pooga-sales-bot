@@ -37,6 +37,8 @@ services:
         value: "30000"
       - key: X_FORBIDDEN_BACKOFF_MS
         value: "3600000"
+      - key: X_AUTH_MODE
+        value: oauth1
       - key: IGNORE_SALES_BEFORE
         value: "2026-06-24T01:22:16Z"
       - key: STATE_FILE
