@@ -6,7 +6,7 @@ const { TwitterApi } = require("twitter-api-v2");
 const { config, normalizeUsername } = require("./config");
 
 const DEFAULT_REDIRECT_URI = "http://127.0.0.1:8787/callback";
-const SCOPES = ["tweet.read", "tweet.write", "users.read", "offline.access"];
+const SCOPES = ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"];
 
 function requireValue(name, value) {
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
