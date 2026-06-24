@@ -90,10 +90,25 @@ function tweetResponseId(response) {
 async function postWithOAuth1Fallback(client, text, mediaId, originalError) {
   if (!isForbidden(originalError)) throw originalError;
 
-  console.warn("X v2 create-post returned 403; trying OAuth1 v1.1 tweet fallback");
-  const payload = mediaId ? { media_ids: String(mediaId) } : undefined;
+  console.warn("X v2 create-post returned 403; trying OAuth1-authenticated v2 fallback");
+  const v2Payload = mediaId
+    ? {
+        text,
+        media: {
+          media_ids: [String(mediaId)],
+        },
+      }
+    : text;
   try {
-    return await client.v1.tweet(text, payload);
+    return await client.v2.tweet(v2Payload);
+  } catch (v2FallbackError) {
+    console.warn(`OAuth1-authenticated v2 fallback failed: ${v2FallbackError.message}`);
+  }
+
+  console.warn("Trying OAuth1 v1.1 tweet fallback");
+  const v1Payload = mediaId ? { media_ids: String(mediaId) } : undefined;
+  try {
+    return await client.v1.tweet(text, v1Payload);
   } catch (fallbackError) {
     console.warn(`OAuth1 v1.1 tweet fallback failed: ${fallbackError.message}`);
     throw originalError;
