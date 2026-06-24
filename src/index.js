@@ -11,6 +11,7 @@ validateConfig();
 
 const state = createStateStore(config.bot.stateFile, {
   maxPendingSales: config.bot.maxPendingSales,
+  forbiddenBackoffMs: config.bot.forbiddenBackoffMs,
 });
 const xPoster = config.dryRun ? null : createXPoster(config.x);
 const ensResolver = createEnsResolver(config.ens);
