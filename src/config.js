@@ -76,6 +76,7 @@ const config = {
     pollEnabled: parseBoolean(env("OPENSEA_POLL_ENABLED"), true),
     pollIntervalMs: parseNumber(env("OPENSEA_POLL_INTERVAL_MS"), 5 * 60_000),
     pollLookbackMs: parseNumber(env("OPENSEA_POLL_LOOKBACK_MS"), 10 * 60_000),
+    pollMaxSales: parseNumber(env("OPENSEA_POLL_MAX_SALES"), 10),
   },
   x: {
     apiKey: env("X_API_KEY"),
