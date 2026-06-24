@@ -316,27 +316,7 @@ function createOAuth2Poster(config) {
     }
   }
 
-  async function uploadMedia(options) {
-    if (!config.postImages || !options.imageUrl) return null;
-
-    const image = await downloadImage(options.imageUrl, config.maxImageBytes);
-    if (!image) return null;
-
-    if (mediaClient) {
-      const mediaId = await mediaClient.v1.uploadMedia(image.buffer, {
-        mimeType: image.mimeType,
-        target: "tweet",
-      });
-
-      if (options.altText) {
-        await mediaClient.v1.createMediaMetadata(mediaId, {
-          alt_text: { text: options.altText.slice(0, 1000) },
-        });
-      }
-
-      return mediaId;
-    }
-
+  async function uploadMediaWithOAuth2(image, options) {
     const mediaId = await withRefresh((activeClient) =>
       activeClient.v2.uploadMedia(image.buffer, {
         media_type: image.mimeType,
@@ -353,6 +333,40 @@ function createOAuth2Poster(config) {
     }
 
     return mediaId;
+  }
+
+  async function uploadMediaWithOAuth1(image, options) {
+    if (!mediaClient) {
+      throw new Error("No OAuth1 media credentials are configured");
+    }
+
+    const mediaId = await mediaClient.v1.uploadMedia(image.buffer, {
+      mimeType: image.mimeType,
+      target: "tweet",
+    });
+
+    if (options.altText) {
+      await mediaClient.v1.createMediaMetadata(mediaId, {
+        alt_text: { text: options.altText.slice(0, 1000) },
+      });
+    }
+
+    return mediaId;
+  }
+
+  async function uploadMedia(options) {
+    if (!config.postImages || !options.imageUrl) return null;
+
+    const image = await downloadImage(options.imageUrl, config.maxImageBytes);
+    if (!image) return null;
+
+    try {
+      return await uploadMediaWithOAuth2(image, options);
+    } catch (error) {
+      if (!mediaClient) throw error;
+      console.warn(`OAuth2 media upload failed: ${error.message}; trying OAuth1 media fallback`);
+      return uploadMediaWithOAuth1(image, options);
+    }
   }
 
   async function createTweet(text, mediaId = null) {
@@ -389,7 +403,7 @@ function createOAuth2Poster(config) {
   }
 
   return {
-    authMode: mediaClient ? "oauth2+oauth1-media" : "oauth2",
+    authMode: mediaClient ? "oauth2-media+oauth1-fallback" : "oauth2-media",
     verifyAccount,
 
     async post(text, options = {}) {
