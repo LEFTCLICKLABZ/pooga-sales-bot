@@ -70,7 +70,8 @@ async function pollRecentSales(reason) {
     }
 
     const sales = sortSales(salesByCollection.flat());
-    const unposted = sales.filter((sale) => !state.has(sale));
+    const pollMaxSales = Math.max(1, Number(config.opensea.pollMaxSales || 10));
+    const unposted = sales.filter((sale) => !state.has(sale)).slice(-pollMaxSales);
     if (sales.length > 0 || unposted.length > 0) {
       console.log(
         `OpenSea REST poll (${reason}) checked ${sales.length} sale(s), found ${unposted.length} new`,
@@ -126,6 +127,9 @@ if (!config.dryRun) {
     console.log(
       `OpenSea REST polling enabled every ${config.opensea.pollIntervalMs}ms with ${config.opensea.pollLookbackMs}ms lookback`,
     );
+    pollRecentSales("startup").catch((error) => {
+      console.error("Failed to poll recent OpenSea sales on startup", error);
+    });
     setInterval(() => {
       pollRecentSales("timer").catch((error) => {
         console.error("Failed to poll recent OpenSea sales", error);
