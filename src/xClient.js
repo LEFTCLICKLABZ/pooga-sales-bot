@@ -75,6 +75,26 @@ function shouldRefreshOAuth2(error) {
   return code === 401 || message.includes("Unauthorized");
 }
 
+function isForbidden(error) {
+  const code = Number(error?.code || error?.status || error?.data?.status || 0);
+  return code === 403;
+}
+
+function tweetResponseId(response) {
+  if (response?.data?.id) return response.data.id;
+  if (response?.id_str) return response.id_str;
+  if (response?.id) return String(response.id);
+  return "";
+}
+
+async function postWithOAuth1Fallback(client, text, mediaId, originalError) {
+  if (!isForbidden(originalError)) throw originalError;
+
+  console.warn("X v2 create-post returned 403; trying OAuth1 v1.1 tweet fallback");
+  const payload = mediaId ? { media_ids: String(mediaId) } : undefined;
+  return client.v1.tweet(text, payload);
+}
+
 function hasOAuth1Credentials(config) {
   return Boolean(config.apiKey && config.apiSecret && config.accessToken && config.accessSecret);
 }
@@ -210,22 +230,30 @@ function createOAuth1Poster(config) {
             },
           });
         } catch (error) {
-          if (config.requireImages) throw error;
-          mediaError = error;
-          console.warn(`Posting without image after media tweet failed: ${error.message}`);
-          response = await client.v2.tweet(text);
-          mediaId = null;
+          try {
+            response = await postWithOAuth1Fallback(client, text, mediaId, error);
+          } catch (fallbackError) {
+            if (config.requireImages) throw fallbackError;
+            mediaError = fallbackError;
+            console.warn(`Posting without image after media tweet failed: ${fallbackError.message}`);
+            response = await client.v2.tweet(text);
+            mediaId = null;
+          }
         }
       } else {
         if (config.requireImages) {
           throw new Error("Image upload is required but no media ID was created");
         }
-        response = await client.v2.tweet(text);
+        try {
+          response = await client.v2.tweet(text);
+        } catch (error) {
+          response = await postWithOAuth1Fallback(client, text, null, error);
+        }
       }
 
       return {
         data: {
-          id: response.data ? response.data.id : response.id_str || String(response.id),
+          id: tweetResponseId(response),
         },
         mediaUploaded: Boolean(mediaId),
         mediaError,
@@ -323,18 +351,23 @@ function createOAuth2Poster(config) {
   }
 
   async function createTweet(text, mediaId = null) {
-    if (!mediaId) {
-      return withRefresh((activeClient) => activeClient.v2.tweet(text));
-    }
+    try {
+      if (!mediaId) {
+        return await withRefresh((activeClient) => activeClient.v2.tweet(text));
+      }
 
-    return withRefresh((activeClient) =>
-      activeClient.v2.tweet({
-        text,
-        media: {
-          media_ids: [String(mediaId)],
-        },
-      }),
-    );
+      return await withRefresh((activeClient) =>
+        activeClient.v2.tweet({
+          text,
+          media: {
+            media_ids: [String(mediaId)],
+          },
+        }),
+      );
+    } catch (error) {
+      if (!mediaClient) throw error;
+      return postWithOAuth1Fallback(mediaClient, text, mediaId, error);
+    }
   }
 
   async function verifyAccount({ force = false } = {}) {
@@ -393,7 +426,7 @@ function createOAuth2Poster(config) {
 
       return {
         data: {
-          id: response.data.id,
+          id: tweetResponseId(response),
         },
         mediaUploaded: Boolean(mediaId),
         mediaError,
