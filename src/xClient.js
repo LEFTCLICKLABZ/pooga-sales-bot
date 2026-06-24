@@ -92,7 +92,12 @@ async function postWithOAuth1Fallback(client, text, mediaId, originalError) {
 
   console.warn("X v2 create-post returned 403; trying OAuth1 v1.1 tweet fallback");
   const payload = mediaId ? { media_ids: String(mediaId) } : undefined;
-  return client.v1.tweet(text, payload);
+  try {
+    return await client.v1.tweet(text, payload);
+  } catch (fallbackError) {
+    console.warn(`OAuth1 v1.1 tweet fallback failed: ${fallbackError.message}`);
+    throw originalError;
+  }
 }
 
 function hasOAuth1Credentials(config) {
