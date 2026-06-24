@@ -1,0 +1,27 @@
+{
+  "name": "pooga-labs-sales-x-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Automatically post Rock Bottom NFT sales from OpenSea to the Pooga Labs X account.",
+  "packageManager": "pnpm@11.5.3",
+  "main": "src/index.js",
+  "scripts": {
+    "backfill": "node src/backfill.js",
+    "oauth:setup": "node src/oauthSetup.js",
+    "retry:pending": "node src/retryPending.js --force",
+    "start": "node src/index.js",
+    "preview": "node src/preview.js",
+    "verify:x": "node src/verifyXAccount.js",
+    "check": "node --check src/index.js && node --check src/backfill.js && node --check src/retryPending.js && node --check src/accountProfiles.js && node --check src/config.js && node --check src/ensResolver.js && node --check src/ethUsdConverter.js && node --check src/oauthSetup.js && node --check src/opensea.js && node --check src/salesProcessor.js && node --check src/stateStore.js && node --check src/tweetTemplate.js && node --check src/verifyXAccount.js && node --check src/xClient.js && node --check src/preview.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@opensea/stream-js": "^0.4.0",
+    "dotenv": "^17.4.2",
+    "ethers": "^6.16.0",
+    "twitter-api-v2": "^1.29.0",
+    "ws": "^8.21.0"
+  }
+}

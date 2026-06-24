@@ -1,0 +1,68 @@
+services:
+  - type: worker
+    name: pooga-labs-sales-bot
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm start
+    maxShutdownDelaySeconds: 60
+    disk:
+      name: sales-bot-state
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DRY_RUN
+        value: "false"
+      - key: POST_IMAGES
+        value: "true"
+      - key: REQUIRE_IMAGES
+        value: "true"
+      - key: OPENSEA_POLL_ENABLED
+        value: "false"
+      - key: ENS_LOOKUP
+        value: "true"
+      - key: ENS_TIMEOUT_MS
+        value: "1500"
+      - key: RETRY_INTERVAL_MS
+        value: "60000"
+      - key: RETRY_BATCH_SIZE
+        value: "3"
+      - key: MAX_PENDING_SALES
+        value: "250"
+      - key: IGNORE_SALES_BEFORE
+        value: "2026-06-24T01:22:16Z"
+      - key: STATE_FILE
+        value: /var/data/posted-sales.json
+      - key: OPENSEA_COLLECTION_SLUGS
+        value: rockbottomofficial
+      - key: COLLECTION_LABELS
+        value: "rockbottomofficial:ROCK BOTTOM"
+      - key: HASHTAGS
+        value: ""
+      - key: X_EXPECTED_USERNAME
+        value: poogalabs
+      - key: OPENSEA_API_KEY
+        sync: false
+      - key: X_API_KEY
+        sync: false
+      - key: X_API_SECRET
+        sync: false
+      - key: X_ACCESS_TOKEN
+        sync: false
+      - key: X_ACCESS_SECRET
+        sync: false
+      - key: ETH_RPC_URL
+        sync: false
+      - key: X_OAUTH2_CLIENT_ID
+        sync: false
+      - key: X_OAUTH2_CLIENT_SECRET
+        sync: false
+      - key: X_OAUTH2_ACCESS_TOKEN
+        sync: false
+      - key: X_OAUTH2_REFRESH_TOKEN
+        sync: false
