@@ -53,6 +53,20 @@ function createSalesProcessor({
     const status = errorStatus(error);
     const title = error?.data?.title || error?.title;
     const detail = error?.data?.detail || error?.detail;
+    const nestedErrors = [
+      error?.data?.errors,
+      error?.data?.error,
+      error?.errors,
+      error?.error,
+    ]
+      .flat()
+      .filter(Boolean)
+      .map((entry) =>
+        typeof entry === "string"
+          ? entry
+          : entry.message || entry.detail || entry.title || JSON.stringify(entry),
+      )
+      .filter(Boolean);
     const rateLimit = error?.rateLimit
       ? ` rateLimit=${error.rateLimit.remaining}/${error.rateLimit.limit} reset=${error.rateLimit.reset}`
       : "";
@@ -60,6 +74,7 @@ function createSalesProcessor({
       status ? `status=${status}` : "",
       title ? `title=${title}` : "",
       detail ? `detail=${detail}` : "",
+      nestedErrors.length ? `errors=${nestedErrors.join(" | ")}` : "",
       error?.message ? `message=${error.message}` : "",
       rateLimit,
     ].filter(Boolean);
@@ -135,7 +150,7 @@ function createSalesProcessor({
       }
 
       console.error(
-        `Failed to post sale ${sale.id} to X${retryAt}: ${summarizeError(error)}`,
+        `Failed to post sale ${sale.id} to X${retryAt} tweetLength=${tweet.length}: ${summarizeError(error)}`,
       );
     }
   }
