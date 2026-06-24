@@ -132,6 +132,23 @@ function hasOAuth1Credentials(xConfig) {
   );
 }
 
+function requireOAuth1Credentials(xConfig) {
+  requireValues([
+    ["X_API_KEY", xConfig.apiKey],
+    ["X_API_SECRET", xConfig.apiSecret],
+    ["X_ACCESS_TOKEN", xConfig.accessToken],
+    ["X_ACCESS_SECRET", xConfig.accessSecret],
+  ]);
+}
+
+function requireOAuth2Credentials(xConfig) {
+  requireValues([
+    ["X_OAUTH2_CLIENT_ID", xConfig.oauth2ClientId],
+    ["X_OAUTH2_ACCESS_TOKEN", xConfig.oauth2AccessToken],
+    ["X_OAUTH2_REFRESH_TOKEN", xConfig.oauth2RefreshToken],
+  ]);
+}
+
 function validateConfig(currentConfig = config) {
   requireValues([
     ["OPENSEA_API_KEY", currentConfig.opensea.apiKey],
@@ -143,23 +160,25 @@ function validateConfig(currentConfig = config) {
 
   if (currentConfig.dryRun) return;
   requireValues([["X_EXPECTED_USERNAME", currentConfig.x.expectedUsername]]);
-  if (hasOAuth1Credentials(currentConfig.x)) return;
 
-  if (currentConfig.x.oauth2AccessToken) {
-    requireValues([
-      ["X_OAUTH2_CLIENT_ID", currentConfig.x.oauth2ClientId],
-      ["X_OAUTH2_ACCESS_TOKEN", currentConfig.x.oauth2AccessToken],
-      ["X_OAUTH2_REFRESH_TOKEN", currentConfig.x.oauth2RefreshToken],
-    ]);
+  if (currentConfig.x.authMode === "oauth1") {
+    requireOAuth1Credentials(currentConfig.x);
     return;
   }
 
-  requireValues([
-    ["X_API_KEY", currentConfig.x.apiKey],
-    ["X_API_SECRET", currentConfig.x.apiSecret],
-    ["X_ACCESS_TOKEN", currentConfig.x.accessToken],
-    ["X_ACCESS_SECRET", currentConfig.x.accessSecret],
-  ]);
+  if (currentConfig.x.authMode === "oauth2") {
+    requireOAuth2Credentials(currentConfig.x);
+    return;
+  }
+
+  if (hasOAuth1Credentials(currentConfig.x)) return;
+
+  if (currentConfig.x.oauth2AccessToken) {
+    requireOAuth2Credentials(currentConfig.x);
+    return;
+  }
+
+  requireOAuth1Credentials(currentConfig.x);
 }
 
 module.exports = {
