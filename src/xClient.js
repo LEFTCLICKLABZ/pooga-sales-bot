@@ -125,8 +125,22 @@ async function downloadImage(imageUrl, maxBytes) {
 }
 
 function createXPoster(config) {
-  if (config.oauth2AccessToken) return createOAuth2Poster(config);
+  if (config.authMode === "oauth1") {
+    if (!hasOAuth1Credentials(config)) {
+      throw new Error("X_AUTH_MODE=oauth1 requires OAuth 1.0a user tokens");
+    }
+    return createOAuth1Poster(config);
+  }
+
+  if (config.authMode === "oauth2") {
+    if (!config.oauth2AccessToken) {
+      throw new Error("X_AUTH_MODE=oauth2 requires X_OAUTH2_ACCESS_TOKEN");
+    }
+    return createOAuth2Poster(config);
+  }
+
   if (hasOAuth1Credentials(config)) return createOAuth1Poster(config);
+  if (config.oauth2AccessToken) return createOAuth2Poster(config);
 
   throw new Error(
     "Missing X credentials: configure OAuth 1.0a user tokens or OAuth 2.0 access token",
